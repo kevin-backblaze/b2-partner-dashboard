@@ -1,0 +1,52 @@
+name: Build and Upload to Backblaze B2 (rclone)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-b2:
+    runs-on: ubuntu-latest
+    env:
+      RCLONE_CONFIG_B2_TYPE: b2
+      RCLONE_CONFIG_B2_ACCOUNT: ${{ secrets.B2_KEY_ID }}
+      RCLONE_CONFIG_B2_KEY: ${{ secrets.B2_APP_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Install rclone
+        run: |
+          curl -Of https://downloads.rclone.org/rclone-current-linux-amd64.zip
+          unzip -q rclone-current-linux-amd64.zip
+          cd rclone-*-linux-amd64 && sudo cp rclone /usr/local/bin/ && sudo chmod 755 /usr/local/bin/rclone
+
+      - name: Upload to B2
+        env:
+          B2_BUCKET: ${{ secrets.B2_BUCKET }}
+          B2_PREFIX: ${{ secrets.B2_PREFIX || 'site' }}
+          # Optional: cache-control header for static assets
+          CACHE_CONTROL: "public, max-age=31536000, immutable"
+        run: |
+          set -eux
+          # Sync build output to b2://bucket/prefix
+          rclone sync ./dist b2:${B2_BUCKET}/${B2_PREFIX}             --checksum             --transfers=16             --checkers=32             --b2-hard-delete             --b2-versions             --header-upload "Cache-Control:${CACHE_CONTROL}"
+
+          # Ensure index.html and root files are not cached too long
+          rclone copy ./dist/index.html b2:${B2_BUCKET}/${B2_PREFIX}/index.html --header-upload "Cache-Control:no-cache"
+          if [ -f "./dist/404.html" ]; then
+            rclone copy ./dist/404.html b2:${B2_BUCKET}/${B2_PREFIX}/404.html --header-upload "Cache-Control:no-cache"
+          fi
