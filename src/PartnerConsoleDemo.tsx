@@ -87,7 +87,7 @@ function aggregate(customers, regionFilter, daysBack){
   start.setDate(end.getDate() - (daysBack-1));
 
   let totalStorage = 0, totalEgress = 0, totalBuckets = 0, totalReq = 0;
-  const perDay = {};
+  const perDay: Record<string, { date: string; storageTB: number; egressTB: number; requests: number }> = {};
 
   customers.forEach(c=>{
     if(regionFilter !== 'all' && !c.regions.includes(regionFilter)) return;
@@ -298,7 +298,7 @@ export default function PartnerConsoleDemo(){
                   </defs>
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} hide={false}/>
                   <YAxis tick={{ fontSize: 12 }} domain={[0, 'auto']}/>
-                  <Tooltip formatter={(v, n)=> n.includes('storage')? `${Number(v).toFixed(2)} TB` : `${Number(v).toFixed(2)} TB`} />
+                  <Tooltip formatter={(value: number, name: string) => `${Number(value).toFixed(2)} TB`} />
                   <Legend />
                   <Area type="monotone" dataKey="storageTB" name="Avg Stored TB" stroke="currentColor" fillOpacity={1} fill="url(#g1)"/>
                   <Area type="monotone" dataKey="egressTB" name="Egress TB" stroke="currentColor" fillOpacity={0.2} />
